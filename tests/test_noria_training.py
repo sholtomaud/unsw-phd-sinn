@@ -6,7 +6,7 @@ import tempfile
 import shutil
 
 # Define the path to the Noria training script
-NORIA_TRAINING_SCRIPT_PATH = "train_noria.py"
+NORIA_TRAINING_SCRIPT_PATH = os.path.abspath("train_noria.py")
 
 @pytest.fixture(scope="module")
 def run_noria_training_app():

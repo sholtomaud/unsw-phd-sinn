@@ -2,8 +2,6 @@
 
 import jax
 import jax.numpy as jnp
-from flax import linen as nn
-from flax.struct import field
 import matplotlib.pyplot as plt
 import numpy as np
 import logging
@@ -14,6 +12,7 @@ import argparse
 # --- Import our modular components ---
 from src.systems_library import NoriaSystem
 from src.pinn_framework import PINN_Framework
+from src.pinn_builder import build_pinn_model # Import the new builder
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -22,29 +21,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # SECTION 1: PROBLEM-SPECIFIC DEFINITIONS (The "JAX-ify" part)
 # ==============================================================================
 
-# --- The PINN Architecture for this problem ---
-class NoriaPINN(nn.Module):
-    """A PINN to learn the state variables h(t) and omega(t) for the Noria system."""
-    features: list[int] = field(default_factory=lambda: [64, 64, 64, 2]) # Output 2 for h and omega
-
-    @nn.compact
-    def __call__(self, t):
-        # The model only needs time 't' as input to predict the state 'Q'.
-        x = t.reshape(-1, 1)
-        for i, feat in enumerate(self.features):
-            x = nn.Dense(features=feat)(x)
-            if i < len(self.features) - 1:
-                x = nn.tanh(x)
-        
-        # Split output into h and omega
-        h_pred = x[..., 0]
-        omega_pred = x[..., 1]
-
-        # Ensure h (water height) is non-negative using softplus
-        h_pred = nn.softplus(h_pred).squeeze()
-        omega_pred = omega_pred.squeeze() # Omega can be positive or negative
-
-        return h_pred, omega_pred
+# --- The PINN Architecture for this problem (now dynamically built) ---
 
 # --- The Physics-Informed Loss Function for this problem ---
 def noria_loss_fn(params, model, t_coll, h_initial, omega_initial, system: NoriaSystem):
@@ -53,8 +30,8 @@ def noria_loss_fn(params, model, t_coll, h_initial, omega_initial, system: Noria
     """
     # Define functions for h(t) and omega(t) that use the current model parameters
     def state_fn(t_var):
-        h, omega = model.apply({'params': params}, t_var)
-        return jnp.stack([h, omega])
+        predictions = model.apply({'params': params}, t_var)
+        return predictions
 
     # Get the derivative functions dh/dt and d_omega/dt using jax.grad and jax.vmap
     dh_dt_fn = jax.grad(lambda t_var: model.apply({'params': params}, t_var)[0])
@@ -62,7 +39,9 @@ def noria_loss_fn(params, model, t_coll, h_initial, omega_initial, system: Noria
 
     # --- Physics Loss ---
     # Evaluate the model and its derivatives at all collocation points
-    h_pred_coll, omega_pred_coll = jax.vmap(model.apply, in_axes=(None, 0))({'params': params}, t_coll)
+    predictions_coll = jax.vmap(model.apply, in_axes=(None, 0))({'params': params}, t_coll)
+    h_pred_coll = predictions_coll[:, 0]
+    omega_pred_coll = predictions_coll[:, 1]
     dh_dt_pred_coll = jax.vmap(dh_dt_fn)(t_coll)
     d_omega_dt_pred_coll = jax.vmap(d_omega_dt_fn)(t_coll)
     
@@ -77,9 +56,9 @@ def noria_loss_fn(params, model, t_coll, h_initial, omega_initial, system: Noria
     loss_physics = jnp.mean(residual_h**2) + jnp.mean(residual_omega**2)
 
     # --- Initial Condition Loss ---
-    h_pred_initial, omega_pred_initial = model.apply({'params': params}, jnp.array([0.0]))
-    loss_initial_h = (h_pred_initial - h_initial)**2
-    loss_initial_omega = (omega_pred_initial - omega_initial)**2
+    initial_predictions = model.apply({'params': params}, jnp.array([0.0]))
+    h_pred_initial = initial_predictions[0]
+    omega_pred_initial = initial_predictions[1]
     
     # Return the weighted sum of the losses
     return loss_physics + 100.0 * (loss_initial_h + loss_initial_omega)
@@ -110,7 +89,7 @@ if __name__ == "__main__":
     system_instance = NoriaSystem(Q_in=1.0, k_q=0.1, k_tau=0.5, k_friction=0.05, I=10.0, h0=1.0, omega0=0.0)
     
     # 2. INSTANTIATE THE PINN ARCHITECTURE
-    pinn_model_arch = NoriaPINN()
+    pinn_model_arch = build_pinn_model(output_dim=2) # Noria has 2 outputs (h, omega)
     dummy_t = jnp.ones((1,))
     
     # --- Training or Inference Logic ---
@@ -148,7 +127,9 @@ if __name__ == "__main__":
     
     # Get prediction from the trained PINN
     predictor = pinn_solver.get_predictor()
-    h_pinn, omega_pinn = jax.vmap(predictor)(t_plot)
+    predictions_pinn = jax.vmap(predictor)(t_plot)
+    h_pinn = predictions_pinn[:, 0]
+    omega_pinn = predictions_pinn[:, 1]
 
     # Plot the final comparison for h
     plt.figure(figsize=(12, 8))
