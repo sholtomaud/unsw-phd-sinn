@@ -1,0 +1,11 @@
+[
+  {
+    "name": "Status",
+    "type": "single_select",
+    "options": [
+      { "name": "Backlog", "color": "gray" },
+      { "name": "In Progress", "color": "blue" },
+      { "name": "Done", "color": "green" }
+    ]
+  }
+]
