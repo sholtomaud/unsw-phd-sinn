@@ -91,6 +91,15 @@ def tank_data_generator(Q0, collocation_size=200, t_max=50.0):
 # ==============================================================================
 
 if __name__ == "__main__":
+    import argparse
+
+    # Setup argument parser
+    parser = argparse.ArgumentParser(description='Train a PINN for the Tank System.')
+    parser.add_argument('--epochs', type=int, default=75000, help='Number of training epochs.')
+    parser.add_argument('--inference-only', action='store_true', help='Run inference using a pre-trained model snapshot.')
+    parser.add_argument('--snapshot-dir', type=str, default='./snapshots/tank_model_snapshot', help='Directory to save or load the model snapshot.')
+    args = parser.parse_args()
+
     # 1. DEFINE THE SPECIFIC SYSTEM TO SOLVE
     # Instantiate the pure physics model from our library
     system_instance = TankSystem(J=2.0, k=0.1, Q0=1.0)
@@ -99,25 +108,30 @@ if __name__ == "__main__":
     pinn_model_arch = TankPINN()
     dummy_t = jnp.ones((1,))
     
-    # 3. INSTANTIATE THE GENERIC FRAMEWORK
-    pinn_solver = PINN_Framework(
-        model=pinn_model_arch,
-        loss_fn=tank_loss_fn,
-        dummy_inputs=(dummy_t,),
-        static_loss_args={'system': system_instance}
-    )
-    
-    # 4. TRAIN THE MODEL
-    data_gen = tank_data_generator(Q0=system_instance.Q0)
-    
-    loss_history = pinn_solver.train(
-        training_data_generator=data_gen,
-        num_epochs=75000
-    )
-    
-    # 5. SAVE THE TRAINED MODEL SNAPSHOT
-    snapshot_dir = './snapshots/tank_model_snapshot'
-    pinn_solver.save_snapshot(directory=snapshot_dir, step=75000)
+    # --- Training or Inference Logic ---
+    if args.inference_only:
+        logging.info(f"Loading model from snapshot: {args.snapshot_dir}")
+        pinn_solver = PINN_Framework.load_snapshot(model=pinn_model_arch, dummy_inputs=(dummy_t,), checkpoint_dir=args.snapshot_dir)
+        loss_history = [] # No training history in inference-only mode
+    else:
+        # 3. INSTANTIATE THE GENERIC FRAMEWORK
+        pinn_solver = PINN_Framework(
+            model=pinn_model_arch,
+            loss_fn=tank_loss_fn,
+            dummy_inputs=(dummy_t,),
+            static_loss_args={'system': system_instance}
+        )
+
+        # 4. TRAIN THE MODEL
+        data_gen = tank_data_generator(Q0=system_instance.Q0)
+        
+        loss_history = pinn_solver.train(
+            training_data_generator=data_gen,
+            num_epochs=args.epochs
+        )
+        
+        # 5. SAVE THE TRAINED MODEL SNAPSHOT
+        pinn_solver.save_snapshot(directory=args.snapshot_dir, step=args.epochs)
     
     # 6. VALIDATE AND VISUALIZE TRAINING RESULTS
     # Get ground truth from our verified systems library
