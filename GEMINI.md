@@ -88,6 +88,11 @@ The following git workflow is **MANDATORY** for all development activities. Adhe
 
 3.  **GitHub Project Management Integration:**
     -   When `GEMINI-CLI` picks up a GitHub Issue to work on (and creates the corresponding branch), it **MUST** update the status of that issue in the GitHub Project Management board to `In Progress`. This provides real-time visibility into active development.
+    -   To achieve this, `GEMINI-CLI` will use `gh project` commands. This typically involves:
+        1.  Listing projects: `gh project list`
+        2.  Finding the issue's item ID within the project.
+        3.  Identifying the 'Status' field ID and the 'In Progress' option ID.
+        4.  Updating the item: `gh project item-edit --id <item-id> --field-id <status-field-id> --single-select-option-id <option-id>`
 
 4.  **Committing:**
     -   Use conventional commit messages (e.g., `feat(physics): Implement Noria torque model`, `fix(training): Resolve NaN issue in loss calculation`). This helps in generating changelogs and understanding the purpose of each commit.
