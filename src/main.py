@@ -103,17 +103,16 @@ if __name__ == "__main__":
     pinn_solver = PINN_Framework(
         model=pinn_model_arch,
         loss_fn=tank_loss_fn,
-        dummy_inputs=(dummy_t,)
+        dummy_inputs=(dummy_t,),
+        static_loss_args={'system': system_instance}
     )
     
     # 4. TRAIN THE MODEL
     data_gen = tank_data_generator(Q0=system_instance.Q0)
     
-    # Pass the system object as a static argument to the train method
     loss_history = pinn_solver.train(
         training_data_generator=data_gen,
-        num_epochs=75000,
-        static_loss_args={'system': system_instance}
+        num_epochs=75000
     )
     
     # 5. SAVE THE TRAINED MODEL SNAPSHOT

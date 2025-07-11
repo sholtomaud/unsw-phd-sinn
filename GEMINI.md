@@ -58,9 +58,16 @@ Our testing is divided into three categories, located in a `tests/` directory:
 
 ### Git Workflow
 
-The following git workflow is **MANDATORY** for all development activities. Adhering to this ensures a clean history, proper tracking of progress, and seamless collaboration. Always check the GitHub Project TODO list for the next TODO item.
+The following git workflow is **MANDATORY** for all development activities. Adhering to this ensures a clean history, proper tracking of progress, and seamless collaboration.
 
-1.  **Start of Work Cycle (`GEMINI-CLI` behavior):**
+1.  **Identify Next Task:** `GEMINI-CLI` **MUST** use the GitHub CLI to list issues and identify the next logical task:
+    ```bash
+    gh issue list
+    ```
+    Always check the GitHub Project TODO list for the next TODO item.
+
+2.  **Start of Work Cycle (`GEMINI-CLI` behavior):**
+    -   Before starting any new task or addressing an issue, `GEMINI-CLI` **MUST** execute:
     -   Before starting any new task or addressing an issue, `GEMINI-CLI` **MUST** execute:
         ```bash
         git fetch origin
