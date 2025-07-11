@@ -1,0 +1,12 @@
+# Core machine learning libraries
+jax
+flax
+optax
+
+# Data manipulation and plotting
+matplotlib
+numpy
+pandas
+
+# Machine learning algorithms
+scikit-learn
