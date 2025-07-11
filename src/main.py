@@ -2,8 +2,6 @@
 
 import jax
 import jax.numpy as jnp
-from flax import linen as nn
-from flax.struct import field
 import matplotlib.pyplot as plt
 import numpy as np
 import logging
@@ -13,6 +11,7 @@ import pandas as pd
 # --- Import our modular components ---
 from systems_library import TankSystem
 from pinn_framework import PINN_Framework
+from pinn_builder import build_pinn_model # Import the new builder
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -21,21 +20,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # SECTION 1: PROBLEM-SPECIFIC DEFINITIONS (The "JAX-ify" part)
 # ==============================================================================
 
-# --- The PINN Architecture for this problem ---
-class TankPINN(nn.Module):
-    """A simple PINN to learn the function Q(t)."""
-    features: list[int] = field(default_factory=lambda: [32, 32, 32, 1])
-
-    @nn.compact
-    def __call__(self, t):
-        # The model only needs time 't' as input to predict the state 'Q'.
-        x = t.reshape(-1, 1)
-        for i, feat in enumerate(self.features):
-            x = nn.Dense(features=feat)(x)
-            if i < len(self.features) - 1:
-                x = nn.tanh(x)
-        # Use softplus to ensure the output Q is always positive.
-        return nn.softplus(x).squeeze()
+# --- The PINN Architecture for this problem (now dynamically built) ---
 
 # --- The Physics-Informed Loss Function for this problem ---
 def tank_loss_fn(params, model, t_coll, t_initial, Q_initial, system: TankSystem):
@@ -105,10 +90,12 @@ if __name__ == "__main__":
     system_instance = TankSystem(J=2.0, k=0.1, Q0=1.0)
     
     # 2. INSTANTIATE THE PINN ARCHITECTURE
-    pinn_model_arch = TankPINN()
+    # Use the dynamic builder to create the PINN model
+    pinn_model_arch = build_pinn_model(output_dim=1) # Tank has 1 output (Q)
     dummy_t = jnp.ones((1,))
     
     # --- Training or Inference Logic ---
+    # Instantiate the generic framework here if not in inference-only mode
     if args.inference_only:
         logging.info(f"Loading model from snapshot: {args.snapshot_dir}")
         pinn_solver = PINN_Framework.load_snapshot(model=pinn_model_arch, dummy_inputs=(dummy_t,), checkpoint_dir=args.snapshot_dir)

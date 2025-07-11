@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 # --- Import our modular components ---
 from src.systems_library import NoriaSystem
 from src.pinn_framework import PINN_Framework
-from train_noria import NoriaPINN # Import the PINN architecture
+from src.pinn_builder import build_pinn_model # Import the new builder
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -60,7 +60,8 @@ def objective_function(design_params, pinn_solver, t_eval, system_constants):
     # For now, we will use the PINN to predict h and omega over time.
     # The PINN's internal parameters are fixed (from training).
     predictor = pinn_solver.get_predictor()
-    h_pred, _ = jax.vmap(predictor)(t_eval)
+    predictions = jax.vmap(predictor)(t_eval)
+    h_pred = predictions[:, 0]
 
     # We want to maximize h at the final time point, so minimize -h_final
     return -h_pred[-1]
@@ -77,7 +78,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Load the pre-trained Noria PINN model
-    pinn_model_arch = NoriaPINN()
+    pinn_model_arch = build_pinn_model(output_dim=2) # Noria has 2 outputs (h, omega)
     dummy_t = jnp.ones((1,))
     pinn_solver = PINN_Framework.load_snapshot(model=pinn_model_arch, dummy_inputs=(dummy_t,), checkpoint_dir=args.snapshot_dir)
     
