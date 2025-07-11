@@ -52,3 +52,42 @@ class TankSystem(SystemModel):
             storage_values[i+1] = current_Q + (dQ_dt * dt)
             
         return time_steps, storage_values
+
+
+class NoriaSystem(SystemModel):
+    """
+    Represents a simplified Noria (water wheel) model.
+    This class defines the physics of the Noria system.
+    """
+    def __init__(self, Q_in=1.0, k_q=0.1, k_tau=0.5, k_friction=0.05, I=10.0, h0=0.0, omega0=0.0):
+        self.Q_in = Q_in
+        self.k_q = k_q
+        self.k_tau = k_tau
+        self.k_friction = k_friction
+        self.I = I
+        self.h0 = h0
+        self.omega0 = omega0
+        logging.info(f"NoriaSystem initialized with Q_in={self.Q_in}, k_q={self.k_q}, k_tau={self.k_tau}, k_friction={self.k_friction}, I={self.I}, h0={self.h0}, omega0={self.omega0}")
+
+    def get_derivative(self, state, t=None):
+        """
+        Defines the system's governing ODEs: dh/dt and d_omega/dt.
+        state = [h, omega]
+        """
+        h, omega = state
+        dh_dt = self.Q_in - self.k_q * h
+        d_omega_dt = (self.k_tau * h - self.k_friction * omega) / self.I
+        return np.array([dh_dt, d_omega_dt])
+
+    def solve_euler(self, t_max, dt):
+        """Solves the Noria system using the Euler method."""
+        time_steps = np.arange(0, t_max + dt, dt)
+        state_values = np.zeros((len(time_steps), 2))
+        state_values[0] = np.array([self.h0, self.omega0])
+
+        for i in range(len(time_steps) - 1):
+            current_state = state_values[i]
+            d_state_dt = self.get_derivative(current_state)
+            state_values[i+1] = current_state + (d_state_dt * dt)
+            
+        return time_steps, state_values
