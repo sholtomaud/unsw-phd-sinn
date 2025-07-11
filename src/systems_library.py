@@ -2,6 +2,7 @@
 
 import numpy as np
 import logging
+import jax.numpy as jnp
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -77,7 +78,7 @@ class NoriaSystem(SystemModel):
         h, omega = state
         dh_dt = self.Q_in - self.k_q * h
         d_omega_dt = (self.k_tau * h - self.k_friction * omega) / self.I
-        return np.array([dh_dt, d_omega_dt])
+        return jnp.array([dh_dt, d_omega_dt])
 
     def solve_euler(self, t_max, dt):
         """Solves the Noria system using the Euler method."""
